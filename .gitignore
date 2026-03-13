@@ -1,0 +1,25 @@
+# ── Build ─────────────────────────────────────────────────────
+build/
+
+# ── Frontend generated ────────────────────────────────────────
+frontend/dist/
+frontend/node_modules/
+
+# ── Qt / CMake ────────────────────────────────────────────────
+*.pro.user
+*.qm
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# ── Editors ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store

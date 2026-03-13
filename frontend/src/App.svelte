@@ -1,141 +1,125 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { dashboard } from "./lib/ws";
+    import { onMount } from 'svelte';
+    import { dashboard } from './lib/ws';
+    import * as Card from '@/lib/components/ui/card';
+    import { Badge } from '@/lib/components/ui/badge';
 
-  onMount(() => dashboard.connect());
+    onMount(() => dashboard.connect());
 
-  // Keep last 30 readings for the sparkline
-  let history: number[] = [];
-  $: if ($dashboard) {
-    history = [...history.slice(-29), $dashboard.temperature];
-  }
+    // Keep last 30 readings for the sparkline
+    let history = $state<number[]>([]);
+
+    $effect(() => {
+        if ($dashboard) {
+            history = [...history.slice(-29), $dashboard.temperature];
+        }
+    });
 </script>
 
-<main>
-  <header>
-    <h1>Qt + Svelte Dashboard</h1>
-    <span class="badge" class:online={$dashboard?.timestamp}>
-      {$dashboard ? "online" : "connecting…"}
-    </span>
-  </header>
+<main class="max-w-225 mx-auto p-8">
+    <header class="flex items-center gap-4 mb-8">
+        <h1 class="text-2xl font-semibold tracking-tight"
+            >Qt + Svelte Dashboard</h1
+        >
+        <Badge
+            variant={$dashboard ? 'default' : 'secondary'}
+            class={$dashboard
+                ? 'bg-green-900/30 text-green-400 border-green-900/50 hover:bg-green-900/40'
+                : ''}
+        >
+            {$dashboard ? 'online' : 'connecting…'}
+        </Badge>
+    </header>
 
-  {#if $dashboard}
-    <div class="grid">
-      <div class="card">
-        <span class="label">Temperature</span>
-        <span class="value">{$dashboard.temperature.toFixed(1)}<small>°C</small></span>
-      </div>
-      <div class="card">
-        <span class="label">Pressure</span>
-        <span class="value">{$dashboard.pressure.toFixed(3)}<small>bar</small></span>
-      </div>
-      <div class="card">
-        <span class="label">RPM</span>
-        <span class="value">{$dashboard.rpm}<small>rpm</small></span>
-      </div>
-    </div>
+    {#if $dashboard}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Card.Root>
+                <Card.Header class="pb-2">
+                    <Card.Title
+                        class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >Temperature</Card.Title
+                    >
+                </Card.Header>
+                <Card.Content>
+                    <div class="text-3xl font-bold">
+                        {$dashboard.temperature.toFixed(1)}<span
+                            class="text-lg font-normal text-muted-foreground ml-1"
+                            >°C</span
+                        >
+                    </div>
+                </Card.Content>
+            </Card.Root>
 
-    <!-- SVG sparkline of the last 30 temperature readings -->
-    <div class="card full">
-      <span class="label">Temperature history</span>
-      <svg viewBox="0 0 300 60" preserveAspectRatio="none">
-        <polyline
-          points={history
-            .map((v, i) => `${(i / 29) * 300},${60 - ((v - 18) / 14) * 60}`)
-            .join(" ")}
-          fill="none"
-          stroke="var(--accent)"
-          stroke-width="2"
-          stroke-linejoin="round"
-        />
-      </svg>
-    </div>
-  {:else}
-    <p class="waiting">Aguardando conexão com o backend Qt…</p>
-  {/if}
+            <Card.Root>
+                <Card.Header class="pb-2">
+                    <Card.Title
+                        class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >Pressure</Card.Title
+                    >
+                </Card.Header>
+                <Card.Content>
+                    <div class="text-3xl font-bold">
+                        {$dashboard.pressure.toFixed(3)}<span
+                            class="text-lg font-normal text-muted-foreground ml-1"
+                            >bar</span
+                        >
+                    </div>
+                </Card.Content>
+            </Card.Root>
+
+            <Card.Root>
+                <Card.Header class="pb-2">
+                    <Card.Title
+                        class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >RPM</Card.Title
+                    >
+                </Card.Header>
+                <Card.Content>
+                    <div class="text-3xl font-bold">
+                        {$dashboard.rpm}<span
+                            class="text-lg font-normal text-muted-foreground ml-1"
+                            >rpm</span
+                        >
+                    </div>
+                </Card.Content>
+            </Card.Root>
+        </div>
+
+        <!-- SVG sparkline of the last 30 temperature readings -->
+        <Card.Root class="w-full">
+            <Card.Header class="pb-2">
+                <Card.Title
+                    class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                    >Temperature history</Card.Title
+                >
+            </Card.Header>
+            <Card.Content>
+                <div class="h-15 w-full mt-2">
+                    <svg
+                        viewBox="0 0 300 60"
+                        preserveAspectRatio="none"
+                        class="w-full h-full"
+                    >
+                        <polyline
+                            points={history
+                                .map(
+                                    (v, i) =>
+                                        `${(i / 29) * 300},${60 - ((v - 18) / 14) * 60}`,
+                                )
+                                .join(' ')}
+                            fill="none"
+                            stroke="currentColor"
+                            class="text-primary"
+                            stroke-width="2"
+                            stroke-linejoin="round"
+                        />
+                    </svg>
+                </div>
+            </Card.Content>
+        </Card.Root>
+    {:else}
+        <div class="mt-8 text-muted-foreground animate-pulse">
+            Aguardando conexão com o backend Qt…
+        </div>
+    {/if}
 </main>
-
-<style>
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-
-  h1 {
-    font-size: 1.4rem;
-    font-weight: 600;
-  }
-
-  .badge {
-    padding: 0.2rem 0.7rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    background: var(--border);
-    color: var(--muted);
-  }
-
-  .badge.online {
-    background: #14532d;
-    color: #4ade80;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .card.full {
-    width: 100%;
-  }
-
-  .label {
-    font-size: 0.75rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text);
-  }
-
-  .value small {
-    font-size: 1rem;
-    font-weight: 400;
-    color: var(--muted);
-    margin-left: 0.25rem;
-  }
-
-  svg {
-    width: 100%;
-    height: 60px;
-    margin-top: 0.5rem;
-  }
-
-  .waiting {
-    color: var(--muted);
-    margin-top: 2rem;
-  }
-</style>

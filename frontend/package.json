@@ -10,9 +10,19 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/node": "^25.5.0",
     "svelte": "^5.53.11",
     "svelte-check": "^4.4.5",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "vite": "^8.0.0"
+  },
+  "dependencies": {
+    "bits-ui": "^1.0.0-next.98",
+    "clsx": "^2.1.1",
+    "lucide-svelte": "^0.577.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwind-variants": "^3.2.2"
   }
 }

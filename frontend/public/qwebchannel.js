@@ -11,7 +11,7 @@ var QWebChannelMessageTypes = {
     disconnectFromSignal: 8,
     setProperty: 9,
     response: 10,
-    error: 11 // Added missing error type
+    error: 11
 };
 
 var QWebChannel = function(transport, initCallback) {
@@ -26,6 +26,7 @@ var QWebChannel = function(transport, initCallback) {
     this.execCallbacks = {};
     this.execId = 0;
     this.registeredObjects = {};
+    this.objects = {};
 
     this.send = function(data) {
         if (typeof data !== "string") {
@@ -35,42 +36,46 @@ var QWebChannel = function(transport, initCallback) {
     };
 
     this.exec = function(data, callback) {
-        if (!callback) {
-            channel.send(data);
-            return;
-        }
         var execId = channel.execId++;
-        channel.execCallbacks[execId] = callback;
+        if (callback) {
+            channel.execCallbacks[execId] = callback;
+        }
         data.id = execId;
         channel.send(data);
     };
 
     this.handleResponse = function(response) {
-        if (!response.id || !channel.execCallbacks[response.id]) {
-            console.error("Invalid response id: " + response.id);
-            return;
+        console.log("QWebChannel received response:", response);
+        if (response.id !== undefined && channel.execCallbacks[response.id]) {
+            var callback = channel.execCallbacks[response.id];
+            delete channel.execCallbacks[response.id];
+            callback(response.data);
+        } else if (response.id !== undefined) {
+             console.warn("Received response for unknown execId:", response.id);
+        } else {
+            console.error("Invalid response without id:", response);
         }
-        var callback = channel.execCallbacks[response.id];
-        delete channel.execCallbacks[response.id];
-        callback(response.data);
     };
 
     this.handleSignal = function(message) {
+        console.log("QWebChannel received signal:", message);
         var object = channel.registeredObjects[message.object];
         if (object) {
-            object.signalEmitted(message.signal, message.args);
+            var signalName = object.__signalIndices__[message.signal] || message.signal;
+            console.log("Dispatching signal:", signalName, "with args:", message.args);
+            object.signalEmitted(signalName, message.args);
         } else {
             console.warn("Unhandled signal: " + message.object + "::" + message.signal);
         }
     };
 
     this.handlePropertyUpdate = function(message) {
-        for (var i in message.signals) {
-            var object = channel.registeredObjects[i];
+        for (var objectName in message.signals) {
+            var object = channel.registeredObjects[objectName];
             if (object) {
-                object.propertyUpdate(message.signals[i]);
+                object.propertyUpdate(message.signals[objectName]);
             } else {
-                console.warn("Unhandled property update: " + i);
+                console.warn("Unhandled property update: " + objectName);
             }
         }
     };
@@ -82,7 +87,12 @@ var QWebChannel = function(transport, initCallback) {
     transport.onmessage = function(message) {
         var data = message.data;
         if (typeof data === "string") {
-            data = JSON.parse(data);
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                console.error("Failed to parse JSON message: " + data);
+                return;
+            }
         }
         switch (data.type) {
             case QWebChannelMessageTypes.response:
@@ -101,14 +111,21 @@ var QWebChannel = function(transport, initCallback) {
                 console.error("QWebChannel error: " + data.data);
                 break;
             default:
-                console.error("Unhandled message type: " + data.type);
+                // Handle missing 'type' or other issues
+                console.error("QWebChannel received message without type:", data);
+                if (data.id !== undefined && channel.execCallbacks[data.id]) {
+                    channel.handleResponse(data);
+                } else {
+                    console.error("Unhandled message: ", data);
+                }
                 break;
         }
     };
 
     this.exec({type: QWebChannelMessageTypes.init}, function(data) {
+        console.log("QWebChannel initialized with " + Object.keys(data).length + " objects.");
         for (var objectName in data) {
-            var object = new QObject(objectName, data[objectName], channel);
+            new QObject(objectName, data[objectName], channel);
         }
         if (initCallback) {
             initCallback(channel);
@@ -119,22 +136,53 @@ var QWebChannel = function(transport, initCallback) {
 function QObject(name, data, webChannel) {
     this.__id__ = name;
     webChannel.registeredObjects[name] = this;
+    webChannel.objects[name] = this;
     this.__webChannel__ = webChannel;
     this.__objectSignals__ = {};
     this.__signatures__ = data.signatures;
     this.__propertySignals__ = data.propertySignals;
+    
+    this.__propertyIndices__ = {};
+    this.__signalIndices__ = {};
 
-    for (var i = 0; i < data.methods.length; ++i) {
-        this[data.methods[i][0]] = this.generateMethod(data.methods[i][0]);
+    var object = this;
+
+    // Methods
+    this.__methods__ = {};
+    if (data.methods) {
+        for (var i = 0; i < data.methods.length; ++i) {
+            var methodName = data.methods[i][0];
+            var methodIndex = data.methods[i][1];
+            this.__methods__[methodName] = methodIndex;
+            this[methodName] = this.generateMethod(methodName);
+        }
     }
 
-    for (var i = 0; i < data.properties.length; ++i) {
-        this[data.properties[i][0]] = data.properties[i][1];
-        this.generateProperty(data.properties[i][0]);
+    // Properties
+    this.__properties__ = {};
+    if (data.properties) {
+        for (var i = 0; i < data.properties.length; ++i) {
+            var propIndex = data.properties[i][0];
+            var propName = data.properties[i][1];
+            var propValue = data.properties[i][3];
+            this.__properties__[propName] = propIndex;
+            this.__propertyIndices__[propIndex] = propName;
+            this["_" + propName] = propValue;
+            this.generateProperty(propName);
+        }
     }
 
-    for (var signalName in data.signals) {
-        this.generateSignal(signalName);
+    // Signals
+    this.__signals__ = {};
+    if (data.signals) {
+        for (var i = 0; i < data.signals.length; ++i) {
+            var signalData = data.signals[i];
+            var signalName = signalData[0];
+            var signalIndex = signalData[1];
+            this.__signals__[signalName] = signalIndex;
+            this.__signalIndices__[signalIndex] = signalName;
+            this.generateSignal(signalName);
+        }
     }
 }
 
@@ -142,13 +190,32 @@ QObject.prototype.generateMethod = function(methodName) {
     var object = this;
     return function() {
         var args = [];
+        var callback;
         for (var i = 0; i < arguments.length; ++i) {
-            args.push(arguments[i]);
+            if (typeof arguments[i] === "function" && i === arguments.length - 1) {
+                callback = arguments[i];
+            } else {
+                args.push(arguments[i]);
+            }
         }
-        var callback = undefined;
-        if (args.length > 0 && typeof args[args.length - 1] === "function") {
-            callback = args.pop();
+
+        if (!callback && typeof Promise !== "undefined") {
+            return new Promise(function(resolve, reject) {
+                object.__webChannel__.exec({
+                    type: QWebChannelMessageTypes.invokeMethod,
+                    object: object.__id__,
+                    method: object.__methods__[methodName],
+                    args: args
+                }, function(data) {
+                    if (data && data.error) {
+                        reject(data.error);
+                    } else {
+                        resolve(data);
+                    }
+                });
+            });
         }
+
         object.__webChannel__.exec({
             type: QWebChannelMessageTypes.invokeMethod,
             object: object.__id__,
@@ -170,33 +237,26 @@ QObject.prototype.generateSignal = function(signalName) {
             object.__objectSignals__[signalName] = object.__objectSignals__[signalName] || [];
             object.__objectSignals__[signalName].push(callback);
 
-            if (!object.__signatures__[signalName]) {
-                // property update signal
-                return;
-            }
-
             object.__webChannel__.exec({
                 type: QWebChannelMessageTypes.connectToSignal,
                 object: object.__id__,
-                signal: signalName
+                signal: object.__signals__[signalName]
             });
         },
         disconnect: function(callback) {
             if (typeof callback !== "function") {
-                console.error("Qt signals can only be disconnected from functions.");
                 return;
             }
-
             var callbacks = object.__objectSignals__[signalName];
             if (callbacks) {
                 var index = callbacks.indexOf(callback);
                 if (index > -1) {
                     callbacks.splice(index, 1);
-                    if (callbacks.length === 0 && object.__signatures__[signalName]) {
+                    if (callbacks.length === 0) {
                         object.__webChannel__.exec({
                             type: QWebChannelMessageTypes.disconnectFromSignal,
                             object: object.__id__,
-                            signal: signalName
+                            signal: object.__signals__[signalName]
                         });
                     }
                 }
@@ -221,15 +281,31 @@ QObject.prototype.generateProperty = function(propertyName) {
             return object["_" + propertyName];
         },
         set: function(value) {
-            if (value === undefined) {
-                console.error("Property value cannot be undefined");
+            if (value === undefined) return;
+            
+            // Critical fix: objectName and other internal properties should be read-only for the bridge
+            // Some JS frameworks (like Svelte 5) try to instrument objects by touching their properties.
+            if (typeof propertyName === "string" && (propertyName === "objectName" || propertyName === "parent" || propertyName.startsWith("__"))) {
                 return;
             }
+
+            if (object["_" + propertyName] === value) return;
+            
+            // Don't try to send complex objects to simple string/number properties
+            // UNLESS it's a property that is EXPECTED to be an object.
+            // For the bridge, we don't have such properties, so we skip sending to backend.
+            if (typeof value === "object" && value !== null) {
+                // We still update the local value so JS doesn't complain, 
+                // but we don't notify the Qt side as it would cause a conversion error.
+                object["_" + propertyName] = value;
+                return;
+            }
+
             object["_" + propertyName] = value;
             object.__webChannel__.exec({
                 type: QWebChannelMessageTypes.setProperty,
                 object: object.__id__,
-                property: propertyName,
+                property: object.__properties__[propertyName],
                 value: value
             });
         }
@@ -237,11 +313,12 @@ QObject.prototype.generateProperty = function(propertyName) {
 };
 
 QObject.prototype.propertyUpdate = function(signals) {
-    for (var propertyName in signals) {
-        this["_" + propertyName] = signals[propertyName][0];
+    for (var propIndex in signals) {
+        var propertyName = this.__propertyIndices__[propIndex] || propIndex;
+        this["_" + propertyName] = signals[propIndex][0];
         var signalName = this.__propertySignals__[propertyName];
         if (signalName) {
-            this.signalEmitted(signalName, signals[propertyName]);
+            this.signalEmitted(signalName, signals[propIndex]);
         }
     }
 };

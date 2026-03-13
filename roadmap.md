@@ -88,6 +88,12 @@ export const bridge = channel.objects.bridge;
 - [x] Em prod: Qt serve os arquivos estáticos de `dist/` via `QWebEngineUrlScheme`
 - [x] Flag de build `#ifdef QT_DEBUG` para alternar
 
+**0.6 Camada Intermediária (middlend Layer) — oRPC/tRPC Style**
+- [x] Criar pasta `middlend/` para centralizar o contrato da Bridge
+- [x] Definir `contract.ts` como "Single Source of Truth" para métodos e sinais
+- [x] Configurar aliases do Vite/TypeScript para importar o contrato sem erros de root
+- [x] Remover todos os `any` do frontend, garantindo tipagem 100% estrita nas chamadas ao C++
+
 ---
 
 ## Fase 1 — Renderização de PDF `Dia 3–7`

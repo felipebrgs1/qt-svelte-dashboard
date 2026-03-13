@@ -1,22 +1,24 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import * as pdfjs from 'pdfjs-dist';
-    // @ts-ignore
-    import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs';
+
 
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
         'pdfjs-dist/build/pdf.worker.mjs',
-        import.meta.url
+        import.meta.url,
     ).toString();
 
-    import { createEventDispatcher } from 'svelte';
-
-    let { base64Data = '', scale = $bindable(1.5), currentPage = $bindable(1), numPages = $bindable(0), onselection = null } = $props();
+    let {
+        base64Data = '',
+        scale = $bindable(1.5),
+        currentPage = $bindable(1),
+        numPages = $bindable(0),
+        onselection = null as ((data: { text: string, rect: DOMRect }) => void) | null,
+    } = $props();
 
     let canvas = $state<HTMLCanvasElement | null>(null);
     let textLayer = $state<HTMLDivElement | null>(null);
-    
-    let pdfDoc = $state<any>(null);
+
+    let pdfDoc = $state<pdfjs.PDFDocumentProxy | null>(null);
 
     $effect(() => {
         if (base64Data) {
@@ -37,8 +39,9 @@
             numPages = pdfDoc.numPages;
             currentPage = 1;
             renderPage(1);
-        } catch (err) {
-            console.error('Error loading PDF:', err);
+            console.log(`PDF loaded with ${numPages} pages`);
+        } catch (error) {
+            console.error('Error loading PDF:', error);
         }
     }
 
@@ -52,24 +55,25 @@
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
-        const renderContext = {
+        // @ts-expect-error - RenderParameters is strict but required for pdfjs
+        const renderContext: pdfjs.RenderParameters = {
             canvasContext: context,
-            viewport: viewport
+            viewport: viewport,
         };
         await page.render(renderContext).promise;
 
         // Render text layer
-        textLayer.innerHTML = '';
+        textLayer.replaceChildren(); // eslint-disable-line svelte/no-dom-manipulating
         textLayer.style.width = `${viewport.width}px`;
         textLayer.style.height = `${viewport.height}px`;
         textLayer.style.setProperty('--scale-factor', scale.toString());
-        
+
         const textContent = await page.getTextContent();
-        // @ts-ignore
+        // @ts-expect-error - renderTextLayer is part of pdfjs-dist but types might be missing in some versions
         await pdfjs.renderTextLayer({
             textContentSource: textContent,
             container: textLayer,
-            viewport: viewport
+            viewport: viewport,
         }).promise;
     }
 
@@ -86,9 +90,16 @@
 
 <div class="pdf-viewer-container flex flex-col items-center p-8 min-h-full">
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="relative shadow-2xl border bg-white" style="width: fit-content;" onmouseup={handleMouseUp}>
+    <div
+        class="relative shadow-2xl border bg-white"
+        style="width: fit-content;"
+        onmouseup={handleMouseUp}
+    >
         <canvas bind:this={canvas}></canvas>
-        <div bind:this={textLayer} class="textLayer absolute top-0 left-0"></div>
+        <div
+            bind:this={textLayer}
+            class="textLayer absolute top-0 left-0"
+        ></div>
     </div>
 </div>
 
@@ -101,7 +112,7 @@
         bottom: 0;
         overflow: hidden;
         opacity: 0.2;
-        line-height: 1.0;
+        line-height: 1;
         pointer-events: auto;
     }
 

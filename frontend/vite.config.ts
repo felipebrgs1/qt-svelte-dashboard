@@ -17,6 +17,13 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@middlend": path.resolve(__dirname, "../middlend"),
+    },
+  },
+  server: {
+    fs: {
+      // Allow importing the shared contract from outside the frontend root
+      allow: [".."],
     },
   },
   // Use relative paths so Qt's QWebEngineView can load from disk

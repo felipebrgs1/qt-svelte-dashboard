@@ -3,7 +3,10 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ESNext", "DOM"],
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
     "moduleResolution": "bundler",
     "strict": true,
     "resolveJsonModule": true,
@@ -11,10 +14,21 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@middlend/*": [
+        "../middlend/*"
+      ]
     },
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "../middlend/**/*.ts"
+  ]
 }

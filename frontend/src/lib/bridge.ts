@@ -1,29 +1,52 @@
-// @ts-nocheck
 import { writable } from 'svelte/store';
+// Note: We import from our shared contract in the middlend/ directory
+import type { QtBridge } from '@middlend/contract';
 
 declare global {
     interface Window {
         qt: {
-            webChannelTransport: any;
+            webChannelTransport: {
+                send(data: string): void;
+                onmessage: (message: { data: string }) => void;
+            };
         };
-        QWebChannel: any;
+        QWebChannel: new (
+            transport: { send: (data: string) => void },
+            callback: (channel: { objects: { bridge: QtBridge } }) => void
+        ) => void;
     }
 }
 
-export const bridgeStore = writable<any>(null);
+const QWebChannel = window.QWebChannel;
 
-export async function initBridge() {
+export const bridgeStore = writable<QtBridge | null>(null);
+export type { QtBridge }; // Re-export for convenience
+
+export async function initBridge(): Promise<QtBridge | undefined> {
     if (typeof window.qt === 'undefined') {
         console.warn('Qt WebChannel transport not found. Are we running in a browser?');
         return;
     }
 
+    console.log('Initializing bridge...');
     return new Promise((resolve) => {
-        new QWebChannel(window.qt.webChannelTransport, (channel) => {
-            const bridge = channel.objects.bridge;
-            bridgeStore.set(bridge);
-            console.log('Bridge initialized:', bridge);
-            resolve(bridge);
-        });
+        try {
+            new QWebChannel(window.qt.webChannelTransport, (channel) => {
+                console.log('QWebChannel callback received');
+                const bridge = channel.objects.bridge;
+                if (!bridge) {
+                    console.error('Bridge object not found in QWebChannel objects');
+                    resolve(undefined);
+                    return;
+                }
+
+                bridgeStore.set(bridge);
+                console.log('Bridge initialized successfully:', bridge);
+                resolve(bridge);
+            });
+        } catch (e) {
+            console.error('Failed to initialize QWebChannel:', e);
+            resolve(undefined);
+        }
     });
 }

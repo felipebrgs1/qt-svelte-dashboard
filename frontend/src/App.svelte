@@ -1,11 +1,11 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { bridgeStore, initBridge } from './lib/bridge';
     import * as Card from '@/lib/components/ui/card';
     import { Button } from '@/lib/components/ui/button';
     import { Badge } from '@/lib/components/ui/badge';
     import PdfViewer from './lib/components/PdfViewer.svelte';
     import PageNav from './lib/components/PageNav.svelte';
+    import { onMount } from 'svelte';
 
     let pdfData = $state('');
     let translation = $state('');
@@ -18,28 +18,47 @@
     let selectedText = $state('');
 
     onMount(async () => {
-        const bridge = (await initBridge()) as any;
+        const bridge = await initBridge();
         if (bridge) {
-            bridge.pdfLoaded.connect((base64: string, pages: number) => {
-                pdfData = base64;
-                numPages = pages;
-            });
-
-            bridge.translationReady.connect(
-                (original: string, translated: string) => {
+            if (bridge.pdfLoaded) {
+                bridge.pdfLoaded.connect((base64: string, pages: number) => {
+                    console.log('PDF Loaded signal received! Pages:', pages, 'Data length:', base64.length);
+                    pdfData = base64;
+                    numPages = pages;
+                });
+            } else {
+                console.error('Signal "pdfLoaded" not found on bridge');
+            }
+            
+            if (bridge.translationReady) {
+                bridge.translationReady.connect((_original: string, translated: string) => {
+                    console.log('Signal received:', translated);
                     translation = translated;
-                },
-            );
+                });
+            } else {
+                console.error('Signal "translationReady" not found on bridge');
+            }
+
+            if (bridge.errorOccurred) {
+                bridge.errorOccurred.connect((message: string) => {
+                    console.error('Backend error:', message);
+                });
+            }
         }
     });
 
     async function handleOpenFile() {
-        const bridge = $bridgeStore as any;
+        const bridge = $bridgeStore;
         if (bridge) {
+            console.log('Opening file dialog...');
             const path = await bridge.openFileDialog();
+            console.log('Dialog result path:', path);
             if (path) {
+                console.log('Loading PDF from path:', path);
                 bridge.loadPdf(path);
             }
+        } else {
+            console.error('Bridge store is empty during handleOpenFile');
         }
     }
 
@@ -50,7 +69,7 @@
         translation = ''; 
 
         if ($bridgeStore) {
-            ($bridgeStore as any).translate(text, 'pt');
+            $bridgeStore.translate(text, 'pt');
         }
     }
 </script>
@@ -160,7 +179,11 @@
                         <Card.Header class="p-3 pb-0">
                             <Card.Title class="text-[10px] uppercase text-muted-foreground flex justify-between items-center">
                                 Tradução
-                                <button onclick={() => isPopoverOpen = false} class="hover:text-foreground">
+                                <button 
+                                    onclick={() => isPopoverOpen = false} 
+                                    class="hover:text-foreground p-1" 
+                                    aria-label="Fechar tradução"
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                 </button>
                             </Card.Title>

@@ -1,14 +1,11 @@
 <script lang="ts">
     import * as pdfjs from 'pdfjs-dist';
+    import workerUrl from 'pdfjs-dist/build/pdf.worker.js?url';
 
-
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.mjs',
-        import.meta.url,
-    ).toString();
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
     let {
-        base64Data = '',
+        pdfUrl = '',
         scale = $bindable(1.5),
         currentPage = $bindable(1),
         numPages = $bindable(0),
@@ -21,8 +18,8 @@
     let pdfDoc = $state<pdfjs.PDFDocumentProxy | null>(null);
 
     $effect(() => {
-        if (base64Data) {
-            loadPdf(base64Data);
+        if (pdfUrl) {
+            loadPdf(pdfUrl);
         }
     });
 
@@ -32,16 +29,17 @@
         }
     });
 
-    async function loadPdf(data: string) {
+    async function loadPdf(url: string) {
         try {
-            const loadingTask = pdfjs.getDocument({ data: atob(data) });
+            console.log('[PdfViewer] Loading PDF from URL:', url);
+            const loadingTask = pdfjs.getDocument({ url });
             pdfDoc = await loadingTask.promise;
             numPages = pdfDoc.numPages;
             currentPage = 1;
             renderPage(1);
-            console.log(`PDF loaded with ${numPages} pages`);
-        } catch (error) {
-            console.error('Error loading PDF:', error);
+            console.log(`[PdfViewer] PDF loaded with ${numPages} pages`);
+        } catch (error: any) {
+            console.error('[PdfViewer] Error loading PDF:', error?.message || error, JSON.stringify(error));
         }
     }
 
@@ -69,7 +67,6 @@
         textLayer.style.setProperty('--scale-factor', scale.toString());
 
         const textContent = await page.getTextContent();
-        // @ts-expect-error - renderTextLayer is part of pdfjs-dist but types might be missing in some versions
         await pdfjs.renderTextLayer({
             textContentSource: textContent,
             container: textLayer,

@@ -1,36 +1,60 @@
 #include "bridge.h"
 
-PdfBridge::PdfBridge(QObject *parent) : QObject(parent) {
-    m_network = new QNetworkAccessManager(this);
+PdfBridge::PdfBridge(QWidget *parentWidget, QObject *parent)
+    : QObject(parent), m_parentWidget(parentWidget) {
+  m_network = new QNetworkAccessManager(this);
+  qDebug() << "[Bridge] PdfBridge created, parentWidget:" << m_parentWidget;
 }
 
 QString PdfBridge::openFileDialog() {
-    QString path = QFileDialog::getOpenFileName(nullptr, "Open PDF", "", "PDF Files (*.pdf)");
-    return path;
+  qDebug() << "[Bridge] openFileDialog() called";
+
+  QString path = QFileDialog::getOpenFileName(m_parentWidget, "Open PDF",
+                                              QString(), "PDF Files (*.pdf)");
+
+  if (path.isEmpty()) {
+    qDebug()
+        << "[Bridge] openFileDialog() — user cancelled or no file selected";
+  } else {
+    qDebug() << "[Bridge] openFileDialog() — selected path:" << path;
+  }
+
+  return path;
 }
 
 void PdfBridge::loadPdf(const QString &path) {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit errorOccurred("Could not open file: " + path);
-        return;
-    }
+  qDebug() << "[Bridge] loadPdf() called with path:" << path;
 
-    QByteArray data = file.readAll();
-    QString base64 = data.toBase64();
-    
-    // For now, pageCount is unknown here, we'll let pdf.js handle it or use QPdfDocument later
-    // The roadmap says "QPdfDocument + pdf.js", we can use QPdfDocument to get page count if needed.
-    emit pdfLoaded(base64, 0); 
+  if (path.isEmpty()) {
+    qDebug() << "[Bridge] loadPdf() — empty path, aborting";
+    emit errorOccurred("Path is empty.");
+    return;
+  }
+
+  if (!QFile::exists(path)) {
+    qDebug() << "[Bridge] loadPdf() — file does not exist:" << path;
+    emit errorOccurred("File does not exist: " + path);
+    return;
+  }
+
+  // Build the custom URL: pdfreader:///absolute/path/to/file.pdf
+  // The PdfSchemeHandler will serve the raw bytes directly to the renderer,
+  // with zero base64 encoding and zero QWebChannel data transfer.
+  // Path already starts with '/', so "pdfreader://" + path yields the
+  // correct triple-slash form: pdfreader:///home/user/file.pdf
+  const QString url = "pdfreader://" + path;
+
+  qDebug() << "[Bridge] loadPdf() — emitting pdfLoaded with URL:" << url;
+  emit pdfLoaded(url, 0);
+  qDebug() << "[Bridge] loadPdf() — pdfLoaded signal emitted";
 }
 
 void PdfBridge::translate(const QString &text, const QString &targetLang) {
-    // Basic implementation for Phase 0/2
-    // We'll use LibreTranslate as suggested in the roadmap later
-    // For now, just a placeholder that emits the signal
-    
-    qDebug() << "Translating:" << text << "to" << targetLang;
-    
-    // Emitting a mock translation for testing Phase 0.3 round-trip
-    emit translationReady(text, "[Translated: " + text + "]");
+  qDebug() << "[Bridge] translate() called — target:" << targetLang
+           << "text length:" << text.length();
+
+  // Placeholder: mock translation for Phase 0.3 round-trip testing.
+  // Phase 2 will replace this with a real LibreTranslate HTTP call.
+  emit translationReady(text, "[Translated: " + text + "]");
+  qDebug() << "[Bridge] translate() — translationReady emitted";
 }

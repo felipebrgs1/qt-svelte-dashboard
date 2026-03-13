@@ -8,6 +8,8 @@ qt_add_executable(dashboard
     main.cpp
     bridge.h
     bridge.cpp
+    pdfscheme.h
+    pdfscheme.cpp
 )
 
 target_link_libraries(dashboard PRIVATE
@@ -16,6 +18,7 @@ target_link_libraries(dashboard PRIVATE
     Qt6::WebEngineWidgets
     Qt6::Widgets
     Qt6::Pdf
+    Qt6::WebEngineCore
 )
 
 # Ensure C++17 is used (inherits from parent but explicit is safer)

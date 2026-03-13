@@ -141,7 +141,7 @@ function QObject(name, data, webChannel) {
     this.__objectSignals__ = {};
     this.__signatures__ = data.signatures;
     this.__propertySignals__ = data.propertySignals;
-    
+
     this.__propertyIndices__ = {};
     this.__signalIndices__ = {};
 
@@ -182,6 +182,12 @@ function QObject(name, data, webChannel) {
             this.__signals__[signalName] = signalIndex;
             this.__signalIndices__[signalIndex] = signalName;
             this.generateSignal(signalName);
+
+            var shortName = signalName.split('(')[0];
+            if (shortName !== signalName) {
+                this.__signals__[shortName] = signalIndex;
+                this.generateSignal(shortName);
+            }
         }
     }
 }
@@ -272,6 +278,16 @@ QObject.prototype.signalEmitted = function(signalName, args) {
             callbacks[i].apply(undefined, args);
         }
     }
+
+    var shortName = signalName.split('(')[0];
+    if (shortName !== signalName) {
+        var shortCallbacks = this.__objectSignals__[shortName];
+        if (shortCallbacks) {
+            for (var i = 0; i < shortCallbacks.length; ++i) {
+                shortCallbacks[i].apply(undefined, args);
+            }
+        }
+    }
 };
 
 QObject.prototype.generateProperty = function(propertyName) {
@@ -282,7 +298,7 @@ QObject.prototype.generateProperty = function(propertyName) {
         },
         set: function(value) {
             if (value === undefined) return;
-            
+
             // Critical fix: objectName and other internal properties should be read-only for the bridge
             // Some JS frameworks (like Svelte 5) try to instrument objects by touching their properties.
             if (typeof propertyName === "string" && (propertyName === "objectName" || propertyName === "parent" || propertyName.startsWith("__"))) {
@@ -290,12 +306,12 @@ QObject.prototype.generateProperty = function(propertyName) {
             }
 
             if (object["_" + propertyName] === value) return;
-            
+
             // Don't try to send complex objects to simple string/number properties
             // UNLESS it's a property that is EXPECTED to be an object.
             // For the bridge, we don't have such properties, so we skip sending to backend.
             if (typeof value === "object" && value !== null) {
-                // We still update the local value so JS doesn't complain, 
+                // We still update the local value so JS doesn't complain,
                 // but we don't notify the Qt side as it would cause a conversion error.
                 object["_" + propertyName] = value;
                 return;

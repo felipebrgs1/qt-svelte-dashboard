@@ -6,14 +6,16 @@ set(FRONTEND_DIST ${CMAKE_SOURCE_DIR}/frontend/dist)
 # ── Dashboard executable ──────────────────────────────────────────────────────
 qt_add_executable(dashboard
     main.cpp
-    server.h
+    bridge.h
+    bridge.cpp
 )
 
 target_link_libraries(dashboard PRIVATE
     Qt6::Core
-    Qt6::WebSockets
+    Qt6::WebChannel
     Qt6::WebEngineWidgets
     Qt6::Widgets
+    Qt6::Pdf
 )
 
 # Ensure C++17 is used (inherits from parent but explicit is safer)

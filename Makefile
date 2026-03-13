@@ -162,10 +162,11 @@ dev: dev-configure ## Dev mode: Qt loads frontend from Vite dev server (:5173)
 	$(call log_info,Compiling backend...)
 	cmake --build $(BUILD_DIR) --parallel $(NPROC)
 	$(call log_info,Starting Vite dev server in background...)
-	cd $(FRONTEND_DIR) && $(PKG_RUN) dev &
-	@sleep 2
-	$(call log_info,Launching Qt  (DASHBOARD_DEV_URL=http://localhost:5173)...)
-	DASHBOARD_DEV_URL=http://localhost:5173 ./$(BIN)
+	@# Use a subshell with a trap to ensure Vite is killed when Qt exits or Ctrl+C is pressed
+	@bash -c "trap 'pkill -P $$$$' EXIT; \
+	  (cd $(FRONTEND_DIR) && $(PKG_RUN) dev -- --port 5173 --strictPort) & \
+	  sleep 3; \
+	  DASHBOARD_DEV_URL=http://localhost:5173 ./$(BIN)"
 
 # ══════════════════════════════════════════════════════════════════════════════
 ##@ Cleanup

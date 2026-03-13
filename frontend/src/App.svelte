@@ -1,125 +1,186 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { dashboard } from './lib/ws';
+    import { bridgeStore, initBridge } from './lib/bridge';
     import * as Card from '@/lib/components/ui/card';
+    import { Button } from '@/lib/components/ui/button';
     import { Badge } from '@/lib/components/ui/badge';
+    import PdfViewer from './lib/components/PdfViewer.svelte';
+    import PageNav from './lib/components/PageNav.svelte';
 
-    onMount(() => dashboard.connect());
+    let pdfData = $state('');
+    let translation = $state('');
+    let currentPage = $state(1);
+    let numPages = $state(0);
+    let scale = $state(1.5);
+    
+    let selectionPos = $state({ x: 0, y: 0 });
+    let isPopoverOpen = $state(false);
+    let selectedText = $state('');
 
-    // Keep last 30 readings for the sparkline
-    let history = $state<number[]>([]);
+    onMount(async () => {
+        const bridge = (await initBridge()) as any;
+        if (bridge) {
+            bridge.pdfLoaded.connect((base64: string, pages: number) => {
+                pdfData = base64;
+                numPages = pages;
+            });
 
-    $effect(() => {
-        if ($dashboard) {
-            history = [...history.slice(-29), $dashboard.temperature];
+            bridge.translationReady.connect(
+                (original: string, translated: string) => {
+                    translation = translated;
+                },
+            );
         }
     });
+
+    async function handleOpenFile() {
+        const bridge = $bridgeStore as any;
+        if (bridge) {
+            const path = await bridge.openFileDialog();
+            if (path) {
+                bridge.loadPdf(path);
+            }
+        }
+    }
+
+    function handleSelection({ text, rect }: { text: string, rect: DOMRect }) {
+        selectedText = text;
+        selectionPos = { x: rect.left + rect.width / 2, y: rect.bottom + window.scrollY };
+        isPopoverOpen = true;
+        translation = ''; 
+
+        if ($bridgeStore) {
+            ($bridgeStore as any).translate(text, 'pt');
+        }
+    }
 </script>
 
-<main class="max-w-225 mx-auto p-8">
-    <header class="flex items-center gap-4 mb-8">
-        <h1 class="text-2xl font-semibold tracking-tight"
-            >Qt + Svelte Dashboard</h1
-        >
-        <Badge
-            variant={$dashboard ? 'default' : 'secondary'}
-            class={$dashboard
-                ? 'bg-green-900/30 text-green-400 border-green-900/50 hover:bg-green-900/40'
-                : ''}
-        >
-            {$dashboard ? 'online' : 'connecting…'}
-        </Badge>
+<main
+    class="h-screen flex flex-col overflow-hidden bg-background text-foreground"
+>
+    <header
+        class="flex items-center justify-between gap-4 p-2 px-4 border-b shrink-0 bg-muted/10"
+    >
+        <div class="flex items-center gap-4">
+            <h1 class="text-lg font-bold tracking-tight">PDF Reader</h1>
+            <Badge variant={$bridgeStore ? 'default' : 'secondary'}>
+                {$bridgeStore ? 'Connected' : 'Disconnected'}
+            </Badge>
+        </div>
+
+        {#if pdfData}
+            <div class="flex items-center gap-8">
+                <PageNav
+                    bind:currentPage
+                    {numPages}
+                />
+
+                <div class="flex items-center gap-2">
+                    <span
+                        class="text-xs font-medium text-muted-foreground uppercase"
+                        >Zoom</span
+                    >
+                    <select
+                        bind:value={scale}
+                        class="h-8 w-24 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                        <option value={0.5}>50%</option>
+                        <option value={0.75}>75%</option>
+                        <option value={1.0}>100%</option>
+                        <option value={1.25}>125%</option>
+                        <option value={1.5}>150%</option>
+                        <option value={2.0}>200%</option>
+                    </select>
+                </div>
+            </div>
+        {/if}
+
+        <div class="flex items-center gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                onclick={handleOpenFile}
+            >
+                Open PDF
+            </Button>
+        </div>
     </header>
 
-    {#if $dashboard}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <Card.Root>
-                <Card.Header class="pb-2">
-                    <Card.Title
-                        class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >Temperature</Card.Title
-                    >
-                </Card.Header>
-                <Card.Content>
-                    <div class="text-3xl font-bold">
-                        {$dashboard.temperature.toFixed(1)}<span
-                            class="text-lg font-normal text-muted-foreground ml-1"
-                            >°C</span
-                        >
-                    </div>
-                </Card.Content>
-            </Card.Root>
-
-            <Card.Root>
-                <Card.Header class="pb-2">
-                    <Card.Title
-                        class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >Pressure</Card.Title
-                    >
-                </Card.Header>
-                <Card.Content>
-                    <div class="text-3xl font-bold">
-                        {$dashboard.pressure.toFixed(3)}<span
-                            class="text-lg font-normal text-muted-foreground ml-1"
-                            >bar</span
-                        >
-                    </div>
-                </Card.Content>
-            </Card.Root>
-
-            <Card.Root>
-                <Card.Header class="pb-2">
-                    <Card.Title
-                        class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >RPM</Card.Title
-                    >
-                </Card.Header>
-                <Card.Content>
-                    <div class="text-3xl font-bold">
-                        {$dashboard.rpm}<span
-                            class="text-lg font-normal text-muted-foreground ml-1"
-                            >rpm</span
-                        >
-                    </div>
-                </Card.Content>
-            </Card.Root>
-        </div>
-
-        <!-- SVG sparkline of the last 30 temperature readings -->
-        <Card.Root class="w-full">
-            <Card.Header class="pb-2">
-                <Card.Title
-                    class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >Temperature history</Card.Title
+    <div class="flex-1 overflow-hidden relative flex">
+        {#if pdfData}
+            <div class="flex-1 overflow-auto bg-neutral-100">
+                <PdfViewer
+                    base64Data={pdfData}
+                    bind:scale
+                    bind:currentPage
+                    bind:numPages
+                    onselection={handleSelection}
+                />
+            </div>
+        {:else}
+            <div
+                class="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4"
+            >
+                <div
+                    class="w-16 h-16 rounded-full bg-muted flex items-center justify-center"
                 >
-            </Card.Header>
-            <Card.Content>
-                <div class="h-15 w-full mt-2">
                     <svg
-                        viewBox="0 0 300 60"
-                        preserveAspectRatio="none"
-                        class="w-full h-full"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-file-text"
+                        ><path
+                            d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+                        /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path
+                            d="M10 9H8"
+                        /><path d="M16 13H8" /><path d="M16 17H8" /></svg
                     >
-                        <polyline
-                            points={history
-                                .map(
-                                    (v, i) =>
-                                        `${(i / 29) * 300},${60 - ((v - 18) / 14) * 60}`,
-                                )
-                                .join(' ')}
-                            fill="none"
-                            stroke="currentColor"
-                            class="text-primary"
-                            stroke-width="2"
-                            stroke-linejoin="round"
-                        />
-                    </svg>
                 </div>
-            </Card.Content>
-        </Card.Root>
-    {:else}
-        <div class="mt-8 text-muted-foreground animate-pulse">
-            Aguardando conexão com o backend Qt…
-        </div>
-    {/if}
+                <p>Nenhum PDF aberto. Clique em "Open PDF" para começar.</p>
+                <Button
+                    variant="secondary"
+                    onclick={handleOpenFile}>Selecionar Arquivo</Button
+                >
+            </div>
+        {/if}
+
+        {#if isPopoverOpen}
+            <div 
+                class="absolute z-50 pointer-events-none" 
+                style="left: {selectionPos.x}px; top: {selectionPos.y}px;"
+            >
+                <div class="pointer-events-auto -translate-x-1/2 mt-2">
+                    <Card.Root class="w-80 shadow-xl border-primary/20">
+                        <Card.Header class="p-3 pb-0">
+                            <Card.Title class="text-[10px] uppercase text-muted-foreground flex justify-between items-center">
+                                Tradução
+                                <button onclick={() => isPopoverOpen = false} class="hover:text-foreground">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                            </Card.Title>
+                        </Card.Header>
+                        <Card.Content class="p-3 pt-2">
+                            {#if translation}
+                                <p class="text-sm leading-relaxed">{translation}</p>
+                            {:else}
+                                <div class="flex items-center gap-2 text-muted-foreground animate-pulse">
+                                    <div class="w-2 h-2 rounded-full bg-primary/40"></div>
+                                    <span class="text-xs">Traduzindo...</span>
+                                </div>
+                            {/if}
+                            <div class="mt-2 text-[10px] text-muted-foreground italic truncate opacity-50">
+                                "{selectedText}"
+                            </div>
+                        </Card.Content>
+                    </Card.Root>
+                </div>
+            </div>
+        {/if}
+    </div>
 </main>

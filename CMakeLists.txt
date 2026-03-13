@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 # Place all executables directly under build/ (not build/backend/)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-find_package(Qt6 REQUIRED COMPONENTS Core WebSockets WebEngineWidgets Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core WebChannel WebEngineWidgets Widgets Pdf)
 
 # ── Option: skip npm/bun build when the Makefile already did it ───────────────
 option(FRONTEND_ALREADY_BUILT

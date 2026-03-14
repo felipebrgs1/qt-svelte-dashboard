@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { Button } from "@/lib/components/ui/button";
     import { ChevronLeft, ChevronRight } from "lucide-svelte";
 
     let { currentPage = $bindable(1), numPages = 0 } = $props();

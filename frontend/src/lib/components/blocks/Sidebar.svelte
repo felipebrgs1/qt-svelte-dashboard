@@ -1,15 +1,5 @@
 <script lang="ts">
-    import {
-        Library,
-        History,
-        Star,
-        Plus,
-        LayoutDashboard,
-        FileText,
-        BookOpen,
-    } from "lucide-svelte";
-    import { Button } from "@/lib/components/ui/button";
-    import * as Card from "@/lib/components/ui/card";
+    import { Library, History, Star, Plus, BookOpen } from "lucide-svelte";
     import { cn } from "@/lib/utils";
 
     interface Props {
@@ -89,11 +79,13 @@
     </nav>
 
     <!-- Footer / Info Section -->
-    <!-- <div class="p-4 mt-auto">
-        <Card.Root class="bg-primary/5 border-primary/10">
-            <Card.Content class="p-4">
-
-            </Card.Content>
-        </Card.Root>
-    </div> -->
+    <div class="p-4 mt-auto">
+        <Card class="bg-primary/5 border-primary/10">
+            <CardContent class="p-4">
+                <p class="text-xs font-medium text-primary/80">
+                    Powered by Qt 6 & Svelte 5
+                </p>
+            </CardContent>
+        </Card>
+    </div>
 </aside>

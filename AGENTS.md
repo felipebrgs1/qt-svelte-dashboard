@@ -9,75 +9,59 @@ This document defines how AI coding agents should understand, navigate, and cont
 A high-performance PDF Reader and Dashboard. It bridges the power of native C++ with the flexibility of a modern web UI.
 
 ### Core Stack:
-- **packager** bun.
-- **Backend (Shell)**: Qt 6.8+ (C++). Handles file system, PDF parsing via specialized libs (if applicable), and window management.
+- **Package Manager**: **Bun** (Mandatory). Do NOT use `npm` or `yarn`.
+- **Backend (Shell)**: Qt 6.8+ (C++). Handles file system, PDF parsing, and window management.
 - **Frontend (UI)**: Svelte 5 (Runes) + Tailwind 4 + shadcn-svelte.
-- **PDF Engine**: `pdf.js` for client-side rendering and annotation previews.
+- **Auto-imports**: Enabled via `unplugin-svelte-components`.
 - **Communication**: `QWebChannel` via a strictly typed `middlend` contract.
 
 ---
 
-## 2. Detailed Repository Layout
+## 2. Repository Layout
 
 ```text
 qt-svelte-dashboard/
 ├── backend/                # Qt/C++ Source Code
-│   ├── src/                # Implementation files (.cpp)
-│   ├── include/            # Header files (.h)
-│   ├── bridge/             # QtWebChannel implementation logic
-│   └── main.cpp            # Application entry point & QWebEngine setup
 ├── frontend/               # Svelte 5 Web Application
 │   ├── src/
 │   │   ├── lib/            # Shared components and utilities
-│   │   │   ├── components/ # Atomic UI (shadcn-svelte base)
-│   │   │   ├── blocks/     # Complex UI sections (Sidebar, PDFViewer)
+│   │   │   ├── components/ # UI Components (Auto-imported)
+│   │   │   ├── blocks/     # UI Sections (Auto-imported)
 │   │   │   └── state/      # Global Svelte Runes ($state)
-│   │   ├── routes/         # SvelteKit/Router pages
-│   │   └── app.css         # Tailwind 4 entry point
-│   └── static/             # Static assets (PDF.js worker, icons)
-├── middlend/               # The "Source of Truth"
-│   ├── contract.ts         # TypeScript interfaces for the Bridge
-│   └── README.md           # Documentation for the Bridge API
-├── cmake/                  # CMake helper scripts for Qt build
-└── Makefile                # Unified commands (make dev, make build)
+│   └── components.d.ts     # Auto-generated type definitions
+├── middlend/               # Bridge Source of Truth
+└── Makefile                # Unified commands (use bun inside)
 ```
 
 ---
 
 ## 3. Architecture Rules & Guidelines
 
-### A. Svelte 5 Runes (Mandatory)
-- **Do not use `let` for reactivity.** Use `$state()`.
-- **Prefer `$derived()`** over manual updates for computed values.
-- **Use `$props()`** for component communication.
-- **Encapsulate logic**: Keep complex state in `.svelte.ts` files using classes or functions returning runes.
+### A. Svelte 5 & Auto-imports (Crucial)
+- **Automatic Components**: You do NOT need to import components from `src/lib/components`, `src/lib/components/ui`, or `src/lib/components/blocks`. Simply use them in the markup (e.g., `<Button>`, `<Sidebar>`, `<PdfViewer>`).
+- **Namespace Exception**: Components using namespaces (like `Card.Root`) still require `import * as Card from "@/lib/components/ui/card"` to maintain IDE clarity and Svelte 5 compatibility.
+- **Runes**: Use `$state`, `$derived`, and `$props`. Avoid legacy Svelte 4 syntax.
 
-### B. Tailwind 4 & UI
-- **Utility First**: Use Tailwind classes for 99% of styling.
-- **Theming**: Follow the `shadcn-svelte` pattern for consistent colors and spacing.
-- **Consistency**: Before creating a new component, check `frontend/src/lib/components` to see if a base already exists.
+### B. Package Management
+- Always use **Bun**.
+- To add a dependency: `bun add <package>`.
+- To run scripts: `bun run <script>`.
 
 ### C. The Bridge (Qt <-> JS)
 - **Contract First**: Any new feature requiring C++ data MUST start by updating `middlend/contract.ts`.
-- **Asynchronous by Default**: All bridge calls return Promises. Handle loading/error states in the UI.
 
 ---
 
 ## 4. Breadcrumb Protocol (Inflection Points)
 
-To "help the next agent" navigate the labyrinth, you must document **Inflection Points**—critical decision nodes that impact future development.
-
-### When to leave a "Rastro" (Trail):
-- When you implement a non-obvious workaround for `pdf.js` quirks.
-- When you define a complex data transformation between C++ and JS.
-- When you make a structural choice in the Svelte component hierarchy.
+To "help the next agent" navigate the labyrinth, you must document **Inflection Points**—critical decision nodes.
 
 ### The "Rastro" Format:
 Add a comment block at the top of the relevant function or file:
 ```typescript
 /**
  * [INFLECTION POINT]: <Short Title>
- * Context: Why X was chosen over Y (e.g., Performance vs. Complexity).
+ * Context: Why X was chosen over Y.
  * Caveat: What might break if this is changed?
  * Next Step: Recommended improvement for the next agent.
  */
@@ -88,17 +72,16 @@ Add a comment block at the top of the relevant function or file:
 ## 5. Development Workflow
 
 1.  **Search**: Grep for `[INFLECTION POINT]` in the directory you are about to modify.
-2.  **Contract**: If the feature needs data, modify `middlend/contract.ts`.
-3.  **Implement**: 
-    - Update C++ `Bridge` classes in `backend/`.
-    - Update Svelte components in `frontend/`.
+2.  **Clean Code**: Do not add manual imports for components located in the auto-import directories.
+3.  **Implement**: Use Svelte 5 Runes.
 4.  **Mark**: Leave your own Breadcrumb if you solved a complex problem.
 
 ---
 
 ## 6. What NOT to Do
 
+- **No NPM**: Never run `npm install`. Use `bun`.
+- **No Manual Component Imports**: Stop importing UI/Blocks components manually unless they use the namespace pattern.
 - **No `any`**: The frontend must be 100% type-safe.
-- **No Direct FS**: Svelte code must never try to access files directly (use the Bridge).
-- **No Style Pollution**: Do not add raw `<style>` tags in Svelte unless Tailwind cannot solve it.
-- **Don't Ghost**: Never finish a task without leaving a trail for the next agent if the logic is complex.
+- **No Style Pollution**: Do not add raw `<style>` tags unless Tailwind cannot solve it.
+- **Don't Ghost**: Never finish a task without leaving a trail for the next agent.

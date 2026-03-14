@@ -1,13 +1,14 @@
 <script lang="ts">
     import { bridgeStore, initBridge } from "./lib/bridge";
     import type { Book } from "@middlend/contract";
-    import * as Card from "@/lib/components/ui/card";
     import { Trash2, FileWarning, Loader2, ChevronLeft } from "lucide-svelte";
     import { onMount } from "svelte";
 
     // [INFLECTION POINT]: App State Management (Svelte 5 Runes)
     // Context: Using $state for all reactive variables.
-    // The library and PDF state are centralized here to coordinate between Sidebar, TopBar and Content.
+    // Auto-imports are enabled for UI components (Button, Badge, Card, etc.)
+    // Components with namespace (Card.Root) were switched to individual auto-imported names (Card, CardHeader, etc.)
+
     let books = $state<Book[]>([]);
     let pdfUrl = $state("");
     let translation = $state("");
@@ -44,12 +45,6 @@
 
             if (bridge.pdfLoaded) {
                 bridge.pdfLoaded.connect((url: string, pages: number) => {
-                    console.log(
-                        "[App] pdfLoaded signal received, url:",
-                        url,
-                        "pages:",
-                        pages,
-                    );
                     pdfUrl = url;
                     numPages = pages;
                     isLoading = false;
@@ -166,11 +161,12 @@
 </script>
 
 <div class="flex h-screen w-full overflow-hidden bg-background text-foreground">
-    <!-- Sidebar -->
+    <!-- Sidebar (Auto-imported) -->
     <Sidebar onOpenFile={handleOpenFile} />
 
     <!-- Main Content Area -->
     <main class="flex flex-1 flex-col overflow-hidden">
+        <!-- TopBar (Auto-imported) -->
         <TopBar />
 
         <!-- Dynamic Viewport -->
@@ -191,6 +187,7 @@
                             Back to Library
                         </Button>
                         <div class="h-4 w-[1px] bg-border"></div>
+                        <!-- PageNav (Auto-imported) -->
                         <PageNav bind:currentPage {numPages} />
                     </div>
 
@@ -212,6 +209,7 @@
                 <div
                     class="h-[calc(100%-3rem)] overflow-auto bg-neutral-100 dark:bg-neutral-900/50"
                 >
+                    <!-- PdfViewer (Auto-imported) -->
                     <PdfViewer
                         {pdfUrl}
                         bind:scale
@@ -265,7 +263,8 @@
                                         class="group relative text-left transition-all hover:scale-[1.02]"
                                         onclick={() => handleOpenBook(book)}
                                     >
-                                        <Card.Root
+                                        <!-- Card components (Auto-imported) -->
+                                        <Card
                                             class="overflow-hidden border-muted transition-colors hover:border-primary/50 {book.isValid
                                                 ? ''
                                                 : 'opacity-60'}"
@@ -314,24 +313,22 @@
                                                     </div>
                                                 {/if}
                                             </div>
-                                            <Card.Header class="p-4">
-                                                <Card.Title
+                                            <CardHeader class="p-4">
+                                                <CardTitle
                                                     class="line-clamp-2 h-10 text-sm font-semibold leading-tight"
                                                 >
                                                     {book.title}
-                                                </Card.Title>
-                                            </Card.Header>
-                                            <Card.Content
-                                                class="px-4 pb-4 pt-0"
-                                            >
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent class="px-4 pb-4 pt-0">
                                                 <p
                                                     class="truncate text-[10px] text-muted-foreground"
                                                     title={book.path}
                                                 >
                                                     {book.path}
                                                 </p>
-                                            </Card.Content>
-                                        </Card.Root>
+                                            </CardContent>
+                                        </Card>
                                     </button>
                                 {/each}
                             </div>
@@ -349,10 +346,10 @@
             style="left: {selectionPos.x}px; top: {selectionPos.y}px;"
         >
             <div class="pointer-events-auto mt-2 -translate-x-1/2">
-                <Card.Root
+                <Card
                     class="w-80 border-primary/20 shadow-2xl backdrop-blur-md"
                 >
-                    <Card.Header
+                    <CardHeader
                         class="flex flex-row items-center justify-between p-3 pb-0"
                     >
                         <span
@@ -368,8 +365,8 @@
                             <span class="sr-only">Close</span>
                             ×
                         </Button>
-                    </Card.Header>
-                    <Card.Content class="p-3 pt-2">
+                    </CardHeader>
+                    <CardContent class="p-3 pt-2">
                         {#if translation}
                             <p class="text-sm leading-relaxed">{translation}</p>
                         {:else}
@@ -385,8 +382,8 @@
                         >
                             "{selectedText}"
                         </div>
-                    </Card.Content>
-                </Card.Root>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     {/if}

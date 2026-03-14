@@ -79,7 +79,7 @@
     </nav>
 
     <!-- Footer / Info Section -->
-    <div class="p-4 mt-auto">
+    <!-- <div class="p-4 mt-auto">
         <Card.Root class="bg-primary/5 border-primary/10">
             <Card.Content class="p-4">
                 <p class="text-xs font-medium text-primary/80">
@@ -87,5 +87,5 @@
                 </p>
             </Card.Content>
         </Card.Root>
-    </div>
+    </div> -->
 </aside>

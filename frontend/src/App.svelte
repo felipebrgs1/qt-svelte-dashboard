@@ -1,8 +1,22 @@
 <script lang="ts">
+    /**
+     * [INFLECTION POINT]: PDF Reader Layout
+     * Context: Sidebar and TopBar are conditionally hidden when a PDF is loaded (pdfUrl is truthy).
+     * This was chosen to provide an immersive, distraction-free reading experience.
+     * Caveat: Global navigation and theme switching (in TopBar) are inaccessible during reading.
+     * Next Step: Consider moving theme toggle or search into the PDF sub-header if needed.
+     */
     import { bridgeStore, initBridge } from "./lib/bridge";
     import type { Book } from "@middlend/contract";
     import * as Card from "@/lib/components/ui/card";
-    import { Trash2, FileWarning, Loader2, ChevronLeft } from "lucide-svelte";
+    import {
+        Trash2,
+        FileWarning,
+        Loader2,
+        ChevronLeft,
+        ScrollText,
+        Files,
+    } from "lucide-svelte";
     import { onMount } from "svelte";
 
     // [INFLECTION POINT]: App State Management (Svelte 5 Runes)
@@ -16,6 +30,7 @@
     let currentPage = $state(1);
     let numPages = $state(0);
     let scale = $state(1.0);
+    let viewMode = $state<"page" | "scroll">("page");
 
     let selectionPos = $state({ x: 0, y: 0 });
     let isPopoverOpen = $state(false);
@@ -163,12 +178,16 @@
 
 <div class="flex h-screen w-full overflow-hidden bg-background text-foreground">
     <!-- Sidebar (Auto-imported) -->
-    <Sidebar onOpenFile={handleOpenFile} />
+    {#if !pdfUrl}
+        <Sidebar onOpenFile={handleOpenFile} />
+    {/if}
 
     <!-- Main Content Area -->
     <main class="flex flex-1 flex-col overflow-hidden">
         <!-- TopBar (Auto-imported) -->
-        <TopBar />
+        {#if !pdfUrl}
+            <TopBar />
+        {/if}
 
         <!-- Dynamic Viewport -->
         <div class="flex-1 overflow-hidden relative">
@@ -188,6 +207,36 @@
                             Back to Library
                         </Button>
                         <div class="h-4 w-[1px] bg-border"></div>
+
+                        <div
+                            class="flex items-center gap-1 rounded-md border bg-background p-1"
+                        >
+                            <Button
+                                variant={viewMode === "page"
+                                    ? "secondary"
+                                    : "ghost"}
+                                size="sm"
+                                class="h-7 w-8 p-0"
+                                onclick={() => (viewMode = "page")}
+                                title="Modo Página"
+                            >
+                                <Files size={14} />
+                            </Button>
+                            <Button
+                                variant={viewMode === "scroll"
+                                    ? "secondary"
+                                    : "ghost"}
+                                size="sm"
+                                class="h-7 w-8 p-0"
+                                onclick={() => (viewMode = "scroll")}
+                                title="Modo Scroll"
+                            >
+                                <ScrollText size={14} />
+                            </Button>
+                        </div>
+
+                        <div class="h-4 w-[1px] bg-border"></div>
+
                         <!-- PageNav (Auto-imported) -->
                         <PageNav bind:currentPage {numPages} />
                     </div>
@@ -213,6 +262,7 @@
                     <!-- PdfViewer (Auto-imported) -->
                     <PdfViewer
                         {pdfUrl}
+                        {viewMode}
                         bind:scale
                         bind:currentPage
                         bind:numPages

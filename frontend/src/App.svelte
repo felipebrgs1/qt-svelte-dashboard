@@ -1,13 +1,13 @@
 <script lang="ts">
     import { bridgeStore, initBridge } from "./lib/bridge";
-    import type { Book } from "../../middlend/contract";
+    import type { Book } from "@middlend/contract";
     import * as Card from "@/lib/components/ui/card";
-    import { Button } from "@/lib/components/ui/button";
-    import { Badge } from "@/lib/components/ui/badge";
-    import PdfViewer from "./lib/components/PdfViewer.svelte";
-    import PageNav from "./lib/components/PageNav.svelte";
+    import { Trash2, FileWarning, Loader2, ChevronLeft } from "lucide-svelte";
     import { onMount } from "svelte";
 
+    // [INFLECTION POINT]: App State Management (Svelte 5 Runes)
+    // Context: Using $state for all reactive variables.
+    // The library and PDF state are centralized here to coordinate between Sidebar, TopBar and Content.
     let books = $state<Book[]>([]);
     let pdfUrl = $state("");
     let translation = $state("");
@@ -54,19 +54,14 @@
                     numPages = pages;
                     isLoading = false;
                 });
-            } else {
-                console.error('Signal "pdfLoaded" not found on bridge');
             }
 
             if (bridge.translationReady) {
                 bridge.translationReady.connect(
                     (_original: string, translated: string) => {
-                        console.log("Signal received:", translated);
                         translation = translated;
                     },
                 );
-            } else {
-                console.error('Signal "translationReady" not found on bridge');
             }
 
             if (bridge.errorOccurred) {
@@ -82,30 +77,19 @@
     async function handleOpenFile() {
         const bridge = $bridgeStore;
         if (!bridge) {
-            showError(
-                "Backend não conectado. Aguarde a conexão e tente novamente.",
-            );
+            showError("Backend não conectado.");
             return;
         }
 
-        console.log("[App] Opening file dialog...");
         const path = await bridge.openFileDialog();
-        console.log("[App] Dialog result path:", path);
+        if (!path) return;
 
-        if (!path) {
-            console.log("[App] No file selected (dialog cancelled).");
-            return;
-        }
-
-        console.log("[App] Loading PDF from path:", path);
         isLoading = true;
-
         const newBook = await bridge.addBook(path);
         if (newBook) {
             currentBookId = newBook.id;
             await refreshLibrary();
         }
-
         bridge.loadPdf(path);
     }
 
@@ -141,7 +125,6 @@
 
             const book = books.find((b) => b.id === currentBookId);
             if (book && !book.cover) {
-                console.log("[App] Generating cover for book:", currentBookId);
                 const thumbnailCanvas = document.createElement("canvas");
                 const ctx = thumbnailCanvas.getContext("2d");
                 const MAX_WIDTH = 300;
@@ -182,377 +165,251 @@
     }
 </script>
 
-<main
-    class="h-screen flex flex-col overflow-hidden bg-background text-foreground"
->
-    <header
-        class="flex items-center justify-between gap-4 p-2 px-4 border-b shrink-0 bg-muted/10"
-    >
-        <div class="flex items-center gap-4">
-            <h1 class="text-lg font-bold tracking-tight">PDF Reader</h1>
-            <Badge variant={$bridgeStore ? "default" : "secondary"}>
-                {$bridgeStore ? "Connected" : "Disconnected"}
-            </Badge>
-        </div>
+<div class="flex h-screen w-full overflow-hidden bg-background text-foreground">
+    <!-- Sidebar -->
+    <Sidebar onOpenFile={handleOpenFile} />
 
-        {#if pdfUrl}
-            <div class="flex items-center gap-8">
-                <PageNav bind:currentPage {numPages} />
+    <!-- Main Content Area -->
+    <main class="flex flex-1 flex-col overflow-hidden">
+        <TopBar />
 
-                <div class="flex items-center gap-2">
-                    <span
-                        class="text-xs font-medium text-muted-foreground uppercase"
-                        >Zoom</span
-                    >
-                    <select
-                        bind:value={scale}
-                        class="h-8 w-24 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                        <option value={0.5}>50%</option>
-                        <option value={0.75}>75%</option>
-                        <option value={1.0}>100%</option>
-                        <option value={1.25}>125%</option>
-                        <option value={1.5}>150%</option>
-                        <option value={2.0}>200%</option>
-                    </select>
-                </div>
-            </div>
-        {/if}
-
-        <div class="flex items-center gap-2">
+        <!-- Dynamic Viewport -->
+        <div class="flex-1 overflow-hidden relative">
             {#if pdfUrl}
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onclick={() => (pdfUrl = "")}
+                <!-- PDF Viewer Header (Sub-header) -->
+                <div
+                    class="flex h-12 items-center justify-between border-b bg-muted/30 px-4"
                 >
-                    Voltar para Biblioteca
-                </Button>
-            {:else}
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onclick={handleOpenFile}
-                    disabled={isLoading}
-                >
-                    {#if isLoading}
-                        <svg
-                            class="animate-spin mr-1 h-3 w-3"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
+                    <div class="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onclick={() => (pdfUrl = "")}
+                            class="gap-2"
                         >
-                            <circle
-                                class="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                stroke-width="4"
-                            ></circle>
-                            <path
-                                class="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8v8H4z"
-                            ></path>
-                        </svg>
-                        Carregando...
-                    {:else}
-                        Open PDF
-                    {/if}
-                </Button>
-            {/if}
-        </div>
-    </header>
-
-    <div class="flex-1 overflow-hidden relative flex">
-        {#if pdfUrl}
-            <div class="flex-1 overflow-auto bg-neutral-100">
-                <PdfViewer
-                    {pdfUrl}
-                    bind:scale
-                    bind:currentPage
-                    bind:numPages
-                    onselection={handleSelection}
-                    onrendercomplete={handleRenderComplete}
-                />
-            </div>
-        {:else}
-            <div class="flex-1 flex flex-col p-8 overflow-auto bg-background">
-                <div class="max-w-6xl mx-auto w-full">
-                    <div class="flex items-center justify-between mb-8">
-                        <div>
-                            <h2 class="text-3xl font-bold tracking-tight">
-                                Sua Biblioteca
-                            </h2>
-                            <p class="text-muted-foreground">
-                                Gerencie e leia seus documentos PDF.
-                            </p>
-                        </div>
-                        <Button onclick={handleOpenFile} disabled={isLoading}>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="mr-2"
-                                ><path d="M5 12h14" /><path d="M12 5v14" /></svg
-                            >
-                            Adicionar Livro
+                            <ChevronLeft size={16} />
+                            Back to Library
                         </Button>
+                        <div class="h-4 w-[1px] bg-border"></div>
+                        <PageNav bind:currentPage {numPages} />
                     </div>
 
-                    {#if books.length === 0}
-                        <div
-                            class="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-muted/30"
+                    <div class="flex items-center gap-4">
+                        <select
+                            bind:value={scale}
+                            class="h-8 w-24 rounded-md border bg-background px-2 text-xs focus:ring-1 focus:ring-ring"
                         >
-                            <div
-                                class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    class="text-muted-foreground"
-                                    ><path
-                                        d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
-                                    /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></svg
-                                >
-                            </div>
-                            <p class="text-lg font-medium">
-                                Nenhum livro ainda
-                            </p>
-                            <p class="text-sm text-muted-foreground mb-6">
-                                Comece adicionando um arquivo PDF à sua coleção.
-                            </p>
-                            <Button variant="outline" onclick={handleOpenFile}
-                                >Selecionar Arquivo</Button
-                            >
-                        </div>
-                    {:else}
-                        <div
-                            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-                        >
-                            {#each books as book (book.id)}
-                                <button
-                                    class="text-left group transition-transform hover:scale-[1.02]"
-                                    onclick={() => handleOpenBook(book)}
-                                >
-                                    <Card.Root
-                                        class="h-full overflow-hidden border-muted hover:border-primary/50 transition-colors {book.isValid
-                                            ? ''
-                                            : 'opacity-60'}"
-                                    >
-                                        <div
-                                            class="aspect-[3/4] bg-muted relative flex items-center justify-center p-6 overflow-hidden"
-                                        >
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                class="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-destructive hover:text-destructive-foreground h-8 w-8"
-                                                onclick={(e) =>
-                                                    handleRemoveBook(
-                                                        book.id,
-                                                        e,
-                                                    )}
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="14"
-                                                    height="14"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    ><path d="M3 6h18" /><path
-                                                        d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
-                                                    /><path
-                                                        d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-                                                    /></svg
-                                                >
-                                            </Button>
-                                            {#if book.cover}
-                                                <img
-                                                    src={book.cover}
-                                                    alt={book.title}
-                                                    class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                                />
-                                            {:else}
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="64"
-                                                    height="64"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="1"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    class="text-muted-foreground/40 group-hover:text-primary/30 transition-colors"
-                                                    ><path
-                                                        d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
-                                                    /><path
-                                                        d="M14 2v4a2 2 0 0 0 2 2h4"
-                                                    /></svg
-                                                >
-                                            {/if}
-
-                                            {#if !book.isValid}
-                                                <div
-                                                    class="absolute inset-0 bg-destructive/10 flex items-center justify-center"
-                                                >
-                                                    <Badge
-                                                        variant="destructive"
-                                                        class="shadow-lg"
-                                                        >Arquivo Movido</Badge
-                                                    >
-                                                </div>
-                                            {/if}
-                                        </div>
-                                        <Card.Header class="p-4">
-                                            <Card.Title
-                                                class="text-sm font-bold line-clamp-2 leading-tight h-10"
-                                            >
-                                                {book.title}
-                                            </Card.Title>
-                                        </Card.Header>
-                                        <Card.Content class="p-4 pt-0">
-                                            <p
-                                                class="text-[10px] text-muted-foreground truncate"
-                                                title={book.path}
-                                            >
-                                                {book.path}
-                                            </p>
-                                        </Card.Content>
-                                    </Card.Root>
-                                </button>
-                            {/each}
-                        </div>
-                    {/if}
+                            <option value={0.5}>50%</option>
+                            <option value={0.75}>75%</option>
+                            <option value={1.0}>100%</option>
+                            <option value={1.5}>150%</option>
+                            <option value={2.0}>200%</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-        {/if}
 
-        {#if isPopoverOpen}
-            <div
-                class="absolute z-50 pointer-events-none"
-                style="left: {selectionPos.x}px; top: {selectionPos.y}px;"
-            >
-                <div class="pointer-events-auto -translate-x-1/2 mt-2">
-                    <Card.Root class="w-80 shadow-xl border-primary/20">
-                        <Card.Header class="p-3 pb-0">
-                            <Card.Title
-                                class="text-[10px] uppercase text-muted-foreground flex justify-between items-center"
-                            >
-                                Tradução
-                                <button
-                                    onclick={() => (isPopoverOpen = false)}
-                                    class="hover:text-foreground p-1"
-                                    aria-label="Fechar tradução"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        class="lucide lucide-x"
-                                        ><path d="M18 6 6 18" /><path
-                                            d="m6 6 12 12"
-                                        /></svg
-                                    >
-                                </button>
-                            </Card.Title>
-                        </Card.Header>
-                        <Card.Content class="p-3 pt-2">
-                            {#if translation}
-                                <p class="text-sm leading-relaxed">
-                                    {translation}
+                <!-- Reader Surface -->
+                <div
+                    class="h-[calc(100%-3rem)] overflow-auto bg-neutral-100 dark:bg-neutral-900/50"
+                >
+                    <PdfViewer
+                        {pdfUrl}
+                        bind:scale
+                        bind:currentPage
+                        bind:numPages
+                        onselection={handleSelection}
+                        onrendercomplete={handleRenderComplete}
+                    />
+                </div>
+            {:else}
+                <!-- Library View -->
+                <div class="h-full overflow-auto p-8">
+                    <div class="mx-auto max-w-6xl">
+                        <header class="mb-10 flex items-end justify-between">
+                            <div>
+                                <h2 class="text-3xl font-bold tracking-tight">
+                                    Your Library
+                                </h2>
+                                <p class="text-muted-foreground">
+                                    Manage and read your PDF documents.
                                 </p>
-                            {:else}
-                                <div
-                                    class="flex items-center gap-2 text-muted-foreground animate-pulse"
-                                >
-                                    <div
-                                        class="w-2 h-2 rounded-full bg-primary/40"
-                                    ></div>
-                                    <span class="text-xs">Traduzindo...</span>
-                                </div>
-                            {/if}
-                            <div
-                                class="mt-2 text-[10px] text-muted-foreground italic truncate opacity-50"
-                            >
-                                "{selectedText}"
                             </div>
-                        </Card.Content>
-                    </Card.Root>
-                </div>
-            </div>
-        {/if}
-    </div>
+                            <Badge
+                                variant={$bridgeStore ? "default" : "secondary"}
+                                class="mb-1"
+                            >
+                                {$bridgeStore
+                                    ? "Native Bridge Active"
+                                    : "Bridge Offline"}
+                            </Badge>
+                        </header>
 
-    {#if errorMessage}
+                        {#if isLoading && books.length === 0}
+                            <div
+                                class="flex h-64 flex-col items-center justify-center gap-4"
+                            >
+                                <Loader2
+                                    class="animate-spin text-primary"
+                                    size={40}
+                                />
+                                <p class="text-muted-foreground">
+                                    Initializing library...
+                                </p>
+                            </div>
+                        {:else}
+                            <div
+                                class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                            >
+                                {#each books as book (book.id)}
+                                    <button
+                                        class="group relative text-left transition-all hover:scale-[1.02]"
+                                        onclick={() => handleOpenBook(book)}
+                                    >
+                                        <Card.Root
+                                            class="overflow-hidden border-muted transition-colors hover:border-primary/50 {book.isValid
+                                                ? ''
+                                                : 'opacity-60'}"
+                                        >
+                                            <div
+                                                class="relative aspect-[3/4] overflow-hidden bg-muted"
+                                            >
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    class="absolute right-2 top-2 z-20 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                                                    onclick={(e) =>
+                                                        handleRemoveBook(
+                                                            book.id,
+                                                            e,
+                                                        )}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+
+                                                {#if book.cover}
+                                                    <img
+                                                        src={book.cover}
+                                                        alt={book.title}
+                                                        class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                    />
+                                                {:else}
+                                                    <div
+                                                        class="flex h-full w-full items-center justify-center p-12 text-muted-foreground/20"
+                                                    >
+                                                        <FileWarning
+                                                            size={64}
+                                                            strokeWidth={1}
+                                                        />
+                                                    </div>
+                                                {/if}
+
+                                                {#if !book.isValid}
+                                                    <div
+                                                        class="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]"
+                                                    >
+                                                        <Badge
+                                                            variant="destructive"
+                                                            >File Missing</Badge
+                                                        >
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                            <Card.Header class="p-4">
+                                                <Card.Title
+                                                    class="line-clamp-2 h-10 text-sm font-semibold leading-tight"
+                                                >
+                                                    {book.title}
+                                                </Card.Title>
+                                            </Card.Header>
+                                            <Card.Content
+                                                class="px-4 pb-4 pt-0"
+                                            >
+                                                <p
+                                                    class="truncate text-[10px] text-muted-foreground"
+                                                    title={book.path}
+                                                >
+                                                    {book.path}
+                                                </p>
+                                            </Card.Content>
+                                        </Card.Root>
+                                    </button>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
+        </div>
+    </main>
+
+    <!-- Popover for Translation -->
+    {#if isPopoverOpen}
         <div
-            class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] max-w-md w-full px-4"
+            class="pointer-events-none absolute z-50"
+            style="left: {selectionPos.x}px; top: {selectionPos.y}px;"
         >
-            <div
-                class="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-lg"
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="mt-0.5 shrink-0"
-                    ><circle cx="12" cy="12" r="10" /><line
-                        x1="12"
-                        x2="12"
-                        y1="8"
-                        y2="12"
-                    /><line x1="12" x2="12.01" y1="16" y2="16" /></svg
+            <div class="pointer-events-auto mt-2 -translate-x-1/2">
+                <Card.Root
+                    class="w-80 border-primary/20 shadow-2xl backdrop-blur-md"
                 >
-                <span class="flex-1">{errorMessage}</span>
-                <button
-                    onclick={() => (errorMessage = "")}
-                    class="shrink-0 hover:opacity-70"
-                    aria-label="Fechar"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        ><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg
+                    <Card.Header
+                        class="flex flex-row items-center justify-between p-3 pb-0"
                     >
-                </button>
+                        <span
+                            class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
+                            >Translation</span
+                        >
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-6 w-6 p-0"
+                            onclick={() => (isPopoverOpen = false)}
+                        >
+                            <span class="sr-only">Close</span>
+                            ×
+                        </Button>
+                    </Card.Header>
+                    <Card.Content class="p-3 pt-2">
+                        {#if translation}
+                            <p class="text-sm leading-relaxed">{translation}</p>
+                        {:else}
+                            <div
+                                class="flex items-center gap-2 text-muted-foreground"
+                            >
+                                <Loader2 class="h-3 w-3 animate-spin" />
+                                <span class="text-xs">Translating...</span>
+                            </div>
+                        {/if}
+                        <div
+                            class="mt-2 truncate text-[10px] italic text-muted-foreground opacity-40"
+                        >
+                            "{selectedText}"
+                        </div>
+                    </Card.Content>
+                </Card.Root>
             </div>
         </div>
     {/if}
-</main>
+
+    <!-- Error Toast -->
+    {#if errorMessage}
+        <div
+            class="fixed bottom-6 left-1/2 z-[100] w-full max-w-md -translate-x-1/2 px-4"
+        >
+            <div
+                class="flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive shadow-lg backdrop-blur-sm"
+            >
+                <FileWarning size={18} />
+                <span class="flex-1 font-medium">{errorMessage}</span>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onclick={() => (errorMessage = "")}
+                    class="h-8 w-8 p-0 hover:bg-destructive/20"
+                >
+                    ×
+                </Button>
+            </div>
+        </div>
+    {/if}
+</div>

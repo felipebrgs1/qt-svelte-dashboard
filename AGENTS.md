@@ -9,6 +9,7 @@ This document defines how AI coding agents should understand, navigate, and cont
 A high-performance PDF Reader and Dashboard. It bridges the power of native C++ with the flexibility of a modern web UI.
 
 ### Core Stack:
+- **packager** bun.
 - **Backend (Shell)**: Qt 6.8+ (C++). Handles file system, PDF parsing via specialized libs (if applicable), and window management.
 - **Frontend (UI)**: Svelte 5 (Runes) + Tailwind 4 + shadcn-svelte.
 - **PDF Engine**: `pdf.js` for client-side rendering and annotation previews.

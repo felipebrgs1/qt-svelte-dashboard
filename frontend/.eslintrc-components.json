@@ -1,0 +1,22 @@
+{
+    "globals": {
+        "Badge": true,
+        "Button": true,
+        "Cardaction": true,
+        "Cardcontent": true,
+        "Carddescription": true,
+        "Cardfooter": true,
+        "Cardheader": true,
+        "Cardtitle": true,
+        "Card": true,
+        "Popoverclose": true,
+        "Popovercontent": true,
+        "Popoverportal": true,
+        "Popovertrigger": true,
+        "Popover": true,
+        "Sidebar": true,
+        "TopBar": true,
+        "PageNav": true,
+        "PdfViewer": true
+    }
+}

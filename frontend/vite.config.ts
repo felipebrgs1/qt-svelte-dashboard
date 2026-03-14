@@ -1,8 +1,9 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
-import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
+import Components from "unplugin-svelte-components/vite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,9 +11,19 @@ const __dirname = path.dirname(__filename);
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    svelte({
-      preprocess: vitePreprocess(),
+    Components({
+      // [INFLECTION POINT]: Auto-import Configuration
+      // Context: Automates component imports for Svelte files.
+      // This allows using components from these directories without manual imports.
+      dirs: [
+        "src/lib/components/ui",
+        "src/lib/components/blocks",
+        "src/lib/components",
+      ],
+      dts: true,
+      extensions: ["svelte"],
     }),
+    svelte(), // Preprocess and Runes configuration moved to svelte.config.js
   ],
   resolve: {
     alias: {

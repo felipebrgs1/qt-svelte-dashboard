@@ -90,10 +90,19 @@ int main(int argc, char *argv[]) {
     qDebug() << "[dev] Loading frontend from" << devUrl;
     view.load(QUrl(devUrl));
   } else {
-    QString frontendPath = QDir(QCoreApplication::applicationDirPath())
-                               .filePath("frontend/index.html");
-    qDebug() << "[prod] Loading frontend from" << frontendPath;
-    view.load(QUrl::fromLocalFile(frontendPath));
+    // Try to load from embedded resources first (Production/AUR)
+    // Fallback to local file if resources are empty (local build)
+    QUrl qrcUrl("qrc:/index.html");
+    QFile resFile(":/index.html");
+    if (resFile.exists()) {
+      qDebug() << "[prod] Loading frontend from embedded resources (qrc)";
+      view.load(qrcUrl);
+    } else {
+      QString frontendPath = QDir(QCoreApplication::applicationDirPath())
+                                 .filePath("frontend/index.html");
+      qDebug() << "[prod] Loading frontend from local file:" << frontendPath;
+      view.load(QUrl::fromLocalFile(frontendPath));
+    }
   }
 
   view.setWindowTitle("PDF Reader with Translation");

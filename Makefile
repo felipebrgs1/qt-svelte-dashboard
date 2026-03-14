@@ -3,10 +3,10 @@
 #  Usage: make help
 # ══════════════════════════════════════════════════════════════════════════════
 
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := all
 
 .PHONY: all help check-deps setup frontend frontend-dev \
-        configure build build-backend run dev clean clean-all
+        configure build build-backend run dev bundle-linux clean clean-all
 
 # ── Directories ───────────────────────────────────────────────────────────────
 BUILD_DIR    := build
@@ -41,11 +41,11 @@ C_RED    := \033[0;31m
 
 # ── Logging helpers (call without quoting the argument) ───────────────────────
 # Usage: $(call log_ok,message)   — no surrounding quotes around message
-log_ok    = @printf "$(C_GREEN) ✔  $(1)$(C_RESET)\n"
-log_info  = @printf "$(C_CYAN) →  $(1)$(C_RESET)\n"
-log_warn  = @printf "$(C_YELLOW) ⚠  $(1)$(C_RESET)\n"
-log_error = @printf "$(C_RED) ✘  $(1)$(C_RESET)\n"
-log_step  = @printf "\n$(C_BOLD)$(C_CYAN)── $(1)$(C_RESET)\n"
+log_ok    = printf "$(C_GREEN) ✔  $(1)$(C_RESET)\n"
+log_info  = printf "$(C_CYAN) →  $(1)$(C_RESET)\n"
+log_warn  = printf "$(C_YELLOW) ⚠  $(1)$(C_RESET)\n"
+log_error = printf "$(C_RED) ✘  $(1)$(C_RESET)\n"
+log_step  = printf "\n$(C_BOLD)$(C_CYAN)── $(1)$(C_RESET)\n"
 
 # ══════════════════════════════════════════════════════════════════════════════
 ##@ General
@@ -64,7 +64,7 @@ help: ## Show this help message
 	@printf "  $(C_CYAN)%-18s$(C_RESET) %s\n" "BUILD_TYPE" "Release (default) | Debug | RelWithDebInfo"
 	@printf "\n"
 
-all: build ## Alias for build
+all: build ## ★ Build everything (Default)
 
 # ══════════════════════════════════════════════════════════════════════════════
 ##@ Validation
@@ -88,7 +88,7 @@ check-deps: ## Check all required build dependencies
 	  printf "  $(C_YELLOW)⚠$(C_RESET)  Qt6  — not detected via pkg-config or qmake6 (cmake will still try)\n"; \
 	fi; \
 	test $$fail -eq 0
-	$(call log_ok,All required tools present)
+	@$(call log_ok,All required tools present)
 
 # ══════════════════════════════════════════════════════════════════════════════
 ##@ Frontend
@@ -96,17 +96,17 @@ check-deps: ## Check all required build dependencies
 setup: ## Install frontend dependencies (bun/npm install)
 	@printf "\n$(C_BOLD)$(C_CYAN)── Frontend — installing dependencies ($(PKG_MANAGER))$(C_RESET)\n"
 	cd $(FRONTEND_DIR) && $(PKG_INSTALL)
-	$(call log_ok,Dependencies installed)
+	@$(call log_ok,Dependencies installed)
 
 frontend: setup ## Build Svelte/Vite frontend → frontend/dist/
 	@printf "\n$(C_BOLD)$(C_CYAN)── Frontend — building with Vite$(C_RESET)\n"
 	cd $(FRONTEND_DIR) && $(PKG_RUN) build
-	$(call log_ok,Frontend built  →  frontend/dist/)
+	@$(call log_ok,Frontend built  →  frontend/dist/)
 
 frontend-dev: setup ## Start Vite dev server with hot-reload on :5173
 	@printf "\n$(C_BOLD)$(C_CYAN)── Frontend — dev server (Ctrl-C to stop)$(C_RESET)\n"
-	$(call log_info,Open http://localhost:5173 in a browser)
-	$(call log_info,Qt backend must also be running  (make run in another terminal))
+	@$(call log_info,Open http://localhost:5173 in a browser)
+	@$(call log_info,Qt backend must also be running  (make run in another terminal))
 	cd $(FRONTEND_DIR) && $(PKG_RUN) dev
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,23 +117,23 @@ configure: ## Configure CMake for production (frontend/dist will be copied)
 	cmake -B $(BUILD_DIR) -S . \
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 	  -DFRONTEND_ALREADY_BUILT=ON
-	$(call log_ok,CMake configured  →  $(BUILD_DIR)/)
+	@$(call log_ok,CMake configured  →  $(BUILD_DIR)/)
 
 dev-configure: ## Configure CMake for dev mode (no frontend build or copy)
 	@printf "\n$(C_BOLD)$(C_CYAN)── CMake — configuring [$(BUILD_TYPE) / dev mode]$(C_RESET)\n"
 	cmake -B $(BUILD_DIR) -S . \
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 	  -DFRONTEND_ALREADY_BUILT=ON
-	$(call log_ok,CMake configured for dev  →  $(BUILD_DIR)/)
+	@$(call log_ok,CMake configured for dev  →  $(BUILD_DIR)/)
 
-build-backend: configure ## Compile Qt backend only (run 'make frontend' first)
+build-backend: ## Compile Qt backend only
 	@if [ ! -d "$(FRONTEND_DIR)/dist" ]; then \
-	  printf "$(C_RED) ✘  frontend/dist not found — run 'make frontend' first or use 'make build'$(C_RESET)\n"; \
-	  exit 1; \
+	  $(MAKE) frontend; \
 	fi
+	@$(MAKE) configure
 	@printf "\n$(C_BOLD)$(C_CYAN)── Backend — compiling ($(NPROC) jobs)$(C_RESET)\n"
 	cmake --build $(BUILD_DIR) --parallel $(NPROC)
-	$(call log_ok,Backend compiled  →  $(BIN))
+	@$(call log_ok,Backend compiled  →  $(BIN))
 
 # ══════════════════════════════════════════════════════════════════════════════
 ##@ Full Build
@@ -159,9 +159,9 @@ dev: dev-configure ## Dev mode: Qt loads frontend from Vite dev server (:5173)
 	@printf "  $(C_CYAN)1.$(C_RESET)  Compiles Qt backend\n"
 	@printf "  $(C_CYAN)2.$(C_RESET)  Starts Vite dev server on http://localhost:5173 (background)\n"
 	@printf "  $(C_CYAN)3.$(C_RESET)  Qt opens the Vite URL — hot-reload works!\n\n"
-	$(call log_info,Compiling backend...)
+	@$(call log_info,Compiling backend...)
 	cmake --build $(BUILD_DIR) --parallel $(NPROC)
-	$(call log_info,Starting Vite dev server in background...)
+	@$(call log_info,Starting Vite dev server in background...)
 	@# Use a subshell with a trap to ensure Vite is killed when Qt exits or Ctrl+C is pressed
 	@bash -c "trap 'pkill -P $$$$' EXIT; \
 	  (cd $(FRONTEND_DIR) && $(PKG_RUN) dev -- --port 5173 --strictPort) & \
@@ -169,16 +169,42 @@ dev: dev-configure ## Dev mode: Qt loads frontend from Vite dev server (:5173)
 	  DASHBOARD_DEV_URL=http://localhost:5173 ./$(BIN)"
 
 # ══════════════════════════════════════════════════════════════════════════════
+##@ Bundle
+
+bundle-linux: build ## Create a Linux deployment bundle (uses linuxdeployqt if available)
+	@printf "\n$(C_BOLD)$(C_CYAN)── Bundling for Linux$(C_RESET)\n"
+	@rm -rf bundle-linux
+	@mkdir -p bundle-linux
+	@cp $(BIN) bundle-linux/
+	@if command -v linuxdeployqt >/dev/null 2>&1; then \
+	  $(call log_info,Running linuxdeployqt...); \
+	  # On Arch Linux, linuxdeployqt often fails due to missing optional dependencies (like MySQL). \
+	  # We force it to include the essential platform and SQLite plugins. \
+	  linuxdeployqt bundle-linux/dashboard -appimage -unsupported-allow-new-glibc \
+	    -no-plugins -extra-plugins=sqldrivers/libqsqlite.so,platforms/libqxcb.so,platforms/libqwayland-generic.so \
+	    || $(call log_warn,linuxdeployqt finished with warnings. This is expected on some distros.); \
+	else \
+	  $(call log_warn,linuxdeployqt not found. Created a simple folder with the binary.); \
+	  $(call log_info,For a standalone bundle with all dependencies, install linuxdeployqt.); \
+	fi
+	@$(call log_ok,Bundle prepared in bundle-linux/)
+
+# ══════════════════════════════════════════════════════════════════════════════
 ##@ Cleanup
 
 clean: ## Remove CMake build directory
-	$(call log_info,Removing $(BUILD_DIR)/...)
+	@$(call log_info,Removing $(BUILD_DIR)/...)
 	rm -rf $(BUILD_DIR)
-	$(call log_ok,Build directory removed)
+	@$(call log_ok,Build directory removed)
 
 clean-all: clean ## Remove build/ + frontend/dist/ + node_modules/
-	$(call log_info,Removing frontend/dist/ ...)
+	@$(call log_info,Removing frontend/dist/ ...)
 	rm -rf $(FRONTEND_DIR)/dist
-	$(call log_info,Removing frontend/node_modules/ ...)
+	@$(call log_info,Removing frontend/node_modules/ ...)
 	rm -rf $(FRONTEND_DIR)/node_modules
-	$(call log_ok,Full clean complete)
+	@$(call log_ok,Full clean complete)
+
+install:
+	@$(call log_info,Installing frontend dependencies...)
+	cd $(FRONTEND_DIR) && bun install || exit 1
+	@$(call log_ok,Frontend dependencies installed)

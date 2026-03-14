@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.20)
 # ── Frontend dist path (built by parent CMakeLists or Makefile) ───────────────
 set(FRONTEND_DIST ${CMAKE_SOURCE_DIR}/frontend/dist)
 
+# ── SQL Support ───────────────────────────────────────────────────────────────
+find_package(Qt6 REQUIRED COMPONENTS Sql)
+
 # ── Dashboard executable ──────────────────────────────────────────────────────
 qt_add_executable(dashboard
     main.cpp
@@ -19,6 +22,7 @@ target_link_libraries(dashboard PRIVATE
     Qt6::Widgets
     Qt6::Pdf
     Qt6::WebEngineCore
+    Qt6::Sql
 )
 
 # Ensure C++17 is used (inherits from parent but explicit is safer)

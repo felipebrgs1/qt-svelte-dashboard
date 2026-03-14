@@ -39,7 +39,7 @@ qt-svelte-dashboard/
 
 ### A. Svelte 5 & Auto-imports (Crucial)
 - **Automatic Components**: You do NOT need to import components from `src/lib/components`, `src/lib/components/ui`, or `src/lib/components/blocks`. Simply use them in the markup (e.g., `<Button>`, `<Sidebar>`, `<PdfViewer>`).
-- **Namespace Exception**: Components using namespaces (like `Card.Root`) still require `import * as Card from "@/lib/components/ui/card"` to maintain IDE clarity and Svelte 5 compatibility.
+- **Namespace Exception**: Components using namespaces (like `Card.Root`, `Card.Header`, etc.) MUST be imported manually using `import * as Card from "@/lib/components/ui/card"`. This ensures Svelte 5 correctly resolves the sub-components which are not easily handled by auto-imports alone.
 - **Runes**: Use `$state`, `$derived`, and `$props`. Avoid legacy Svelte 4 syntax.
 
 ### B. Package Management
@@ -72,8 +72,9 @@ Add a comment block at the top of the relevant function or file:
 ## 5. Development Workflow
 
 1.  **Search**: Grep for `[INFLECTION POINT]` in the directory you are about to modify.
-2.  **Clean Code**: Do not add manual imports for components located in the auto-import directories.
-3.  **Implement**: Use Svelte 5 Runes.
+2.  **Clean Code**: Do not add manual imports for simple components (Button, Badge).
+3.  **Namespaces**: Explicitly import complex components that use the `Component.SubComponent` pattern (like Card).
+4.  **Implement**: Use Svelte 5 Runes.
 4.  **Mark**: Leave your own Breadcrumb if you solved a complex problem.
 
 ---

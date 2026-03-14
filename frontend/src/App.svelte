@@ -1,6 +1,7 @@
 <script lang="ts">
     import { bridgeStore, initBridge } from "./lib/bridge";
     import type { Book } from "@middlend/contract";
+    import * as Card from "@/lib/components/ui/card";
     import { Trash2, FileWarning, Loader2, ChevronLeft } from "lucide-svelte";
     import { onMount } from "svelte";
 
@@ -263,8 +264,7 @@
                                         class="group relative text-left transition-all hover:scale-[1.02]"
                                         onclick={() => handleOpenBook(book)}
                                     >
-                                        <!-- Card components (Auto-imported) -->
-                                        <Card
+                                        <Card.Root
                                             class="overflow-hidden border-muted transition-colors hover:border-primary/50 {book.isValid
                                                 ? ''
                                                 : 'opacity-60'}"
@@ -313,22 +313,24 @@
                                                     </div>
                                                 {/if}
                                             </div>
-                                            <CardHeader class="p-4">
-                                                <CardTitle
+                                            <Card.Header class="p-4">
+                                                <Card.Title
                                                     class="line-clamp-2 h-10 text-sm font-semibold leading-tight"
                                                 >
                                                     {book.title}
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent class="px-4 pb-4 pt-0">
+                                                </Card.Title>
+                                            </Card.Header>
+                                            <Card.Content
+                                                class="px-4 pb-4 pt-0"
+                                            >
                                                 <p
                                                     class="truncate text-[10px] text-muted-foreground"
                                                     title={book.path}
                                                 >
                                                     {book.path}
                                                 </p>
-                                            </CardContent>
-                                        </Card>
+                                            </Card.Content>
+                                        </Card.Root>
                                     </button>
                                 {/each}
                             </div>
@@ -346,10 +348,10 @@
             style="left: {selectionPos.x}px; top: {selectionPos.y}px;"
         >
             <div class="pointer-events-auto mt-2 -translate-x-1/2">
-                <Card
+                <Card.Root
                     class="w-80 border-primary/20 shadow-2xl backdrop-blur-md"
                 >
-                    <CardHeader
+                    <Card.Header
                         class="flex flex-row items-center justify-between p-3 pb-0"
                     >
                         <span
@@ -365,8 +367,8 @@
                             <span class="sr-only">Close</span>
                             ×
                         </Button>
-                    </CardHeader>
-                    <CardContent class="p-3 pt-2">
+                    </Card.Header>
+                    <Card.Content class="p-3 pt-2">
                         {#if translation}
                             <p class="text-sm leading-relaxed">{translation}</p>
                         {:else}
@@ -382,8 +384,8 @@
                         >
                             "{selectedText}"
                         </div>
-                    </CardContent>
-                </Card>
+                    </Card.Content>
+                </Card.Root>
             </div>
         </div>
     {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Library, History, Star, Plus, BookOpen } from "lucide-svelte";
+    import * as Card from "@/lib/components/ui/card";
     import { cn } from "@/lib/utils";
 
     interface Props {
@@ -11,7 +12,6 @@
 
     // [INFLECTION POINT]: Sidebar State Management
     // Context: Using $state for navigation to allow future easy integration with a router.
-    // Next Step: If we add many sections, consider moving this to a dedicated state object.
     let activeTab = $state("library");
 
     const menuItems = [
@@ -80,12 +80,12 @@
 
     <!-- Footer / Info Section -->
     <div class="p-4 mt-auto">
-        <Card class="bg-primary/5 border-primary/10">
-            <CardContent class="p-4">
+        <Card.Root class="bg-primary/5 border-primary/10">
+            <Card.Content class="p-4">
                 <p class="text-xs font-medium text-primary/80">
                     Powered by Qt 6 & Svelte 5
                 </p>
-            </CardContent>
-        </Card>
+            </Card.Content>
+        </Card.Root>
     </div>
 </aside>
